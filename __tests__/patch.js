@@ -15,7 +15,7 @@ jest.setTimeout(1000)
 
 const isProd = process.env.NODE_ENV === "production"
 
-function runPatchTest(base, producer, patches, inversePathes) {
+function runPatchTest(base, producer, patches, inversePathes, expectedResult) {
 	let resultProxies, resultEs5
 
 	function runPatchTestHelper() {
@@ -25,6 +25,11 @@ function runPatchTest(base, producer, patches, inversePathes) {
 			recordedPatches = p
 			recordedInversePatches = i
 		})
+
+		if (expectedResult !== undefined)
+			test("produced the correct result", () => {
+				expect(res).toEqual(expectedResult)
+			})
 
 		test("produces the correct patches", () => {
 			expect(recordedPatches).toEqual(patches)
@@ -720,6 +725,22 @@ describe("arrays - delete", () => {
 	)
 })
 
+describe("arrays - append", () => {
+	test("appends to array when last part of path is '-'", () => {
+		const state = {
+			list: [1, 2, 3]
+		}
+		const patch = {
+			op: "add",
+			value: 4,
+			path: ["list", "-"]
+		}
+		expect(applyPatches(state, [patch])).toEqual({
+			list: [1, 2, 3, 4]
+		})
+	})
+})
+
 describe("sets - add - 1", () => {
 	runPatchTest(
 		new Set([1]),
@@ -1302,4 +1323,107 @@ test("#791 patch for  nothing is stored as undefined", () => {
 	expect(patches).toEqual([{op: "replace", path: [], value: undefined}])
 
 	expect(applyPatches({}, patches)).toEqual(undefined)
+})
+
+test("#876 Ensure empty patch set for atomic set+delete on Map", () => {
+	{
+		const [newState, patches] = produceWithPatches(
+			new Map([["foo", "baz"]]),
+			draft => {
+				draft.set("foo", "bar")
+				draft.delete("foo")
+			}
+		)
+		expect(patches).toEqual([{op: "remove", path: ["foo"]}])
+	}
+
+	{
+		const [newState, patches] = produceWithPatches(new Map(), draft => {
+			draft.set("foo", "bar")
+			draft.delete("foo")
+		})
+		expect(patches).toEqual([])
+	}
+})
+
+test("#888 patch to a primitive produces the primitive", () => {
+	{
+		const [res, patches] = produceWithPatches({abc: 123}, draft => nothing)
+		expect(res).toEqual(undefined)
+		expect(patches).toEqual([{op: "replace", path: [], value: undefined}])
+	}
+	{
+		const [res, patches] = produceWithPatches(null, draft => nothing)
+		expect(res).toEqual(undefined)
+		expect(patches).toEqual([{op: "replace", path: [], value: undefined}])
+	}
+	{
+		const [res, patches] = produceWithPatches(0, draft => nothing)
+		expect(res).toEqual(undefined)
+		expect(patches).toEqual([{op: "replace", path: [], value: undefined}])
+	}
+	{
+		const [res, patches] = produceWithPatches("foobar", draft => nothing)
+		expect(res).toEqual(undefined)
+		expect(patches).toEqual([{op: "replace", path: [], value: undefined}])
+	}
+	{
+		const [res, patches] = produceWithPatches([], draft => nothing)
+		expect(res).toEqual(undefined)
+		expect(patches).toEqual([{op: "replace", path: [], value: undefined}])
+	}
+	{
+		const [res, patches] = produceWithPatches(false, draft => nothing)
+		expect(res).toEqual(undefined)
+		expect(patches).toEqual([{op: "replace", path: [], value: undefined}])
+	}
+	{
+		const [res, patches] = produceWithPatches(
+			"foobar",
+			draft => "something else"
+		)
+		expect(res).toEqual("something else")
+		expect(patches).toEqual([
+			{op: "replace", path: [], value: "something else"}
+		])
+	}
+	{
+		const [res, patches] = produceWithPatches(false, draft => true)
+		expect(res).toEqual(true)
+		expect(patches).toEqual([{op: "replace", path: [], value: true}])
+	}
+})
+
+describe("#879 delete item from array", () => {
+	runPatchTest(
+		[1, 2, 3],
+		draft => {
+			delete draft[1]
+		},
+		[{op: "replace", path: [1], value: undefined}],
+		[{op: "replace", path: [1], value: 2}],
+		[1, undefined, 3]
+	)
+})
+
+describe("#879 delete item from array - 2", () => {
+	runPatchTest(
+		[1, 2, 3],
+		draft => {
+			delete draft[2]
+		},
+		[{op: "replace", path: [2], value: undefined}],
+		[{op: "replace", path: [2], value: 3}],
+		[1, 2, undefined]
+	)
+})
+
+test("#897 appendPatch", () => {
+	const state0 = {a: []}
+	const state1 = applyPatches(state0, [{op: "add", path: ["a", "-"], value: 1}])
+	const state2 = applyPatches(state1, [{op: "add", path: ["a", "-"], value: 2}])
+	const state3 = applyPatches(state2, [{op: "add", path: ["a", "-"], value: 3}])
+	expect(state3).toEqual({
+		a: [1, 2, 3]
+	})
 })

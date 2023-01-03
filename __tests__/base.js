@@ -1278,8 +1278,39 @@ function runBaseTest(name, useProxies, autoFreeze, useListener) {
 			const nextState = produce(baseState, draft => {
 				draft.x = +0
 			})
+			// 0 === -0 // true
+			// Object.is(0, -0) // false
+			//
+			// MWE:
+			// Immer preserves the difference between -0 and +0,
+			// so a new state is created.
+			// This isn't defined anywhere explicitly, so could be changed
+			// in the future to follow === behavior, rather than Object.is.
+			// But I think this is fine as is.
 			expect(nextState).not.toBe(baseState)
-			expect(nextState).not.toEqual(baseState)
+			expect(nextState.x).toBe(-0)
+			expect(nextState.x).not.toBe(+0)
+			// however, toEqual treats -0 === +0 (which is true!)
+			expect(nextState).toEqual(baseState)
+		})
+
+		it("should handle equality correctly - 3", () => {
+			const baseState = {
+				x: "s1",
+				y: 1,
+				z: NaN
+			}
+			const nextState = produce(baseState, draft => {
+				draft.x = "s2"
+				draft.y = 1
+				draft.z = NaN
+				if (!isProd) {
+					expect(draft[DRAFT_STATE].assigned_.x).toBe(true)
+					expect(draft[DRAFT_STATE].assigned_.y).toBe(undefined)
+					expect(draft[DRAFT_STATE].assigned_.z).toBe(undefined)
+				}
+			})
+			expect(nextState.x).toBe("s2")
 		})
 
 		// AKA: recursive produce calls
@@ -1728,6 +1759,18 @@ function runBaseTest(name, useProxies, autoFreeze, useListener) {
 					})
 				})
 			})
+
+			it("works with patches", () =>
+				produceWithPatches({a: 0}, async d => {
+					await Promise.resolve()
+					d.a = 1
+				}).then(([nextState, patches, inversePathes]) => {
+					expect(nextState).toEqual({a: 1})
+					expect(patches).toEqual([{op: "replace", path: ["a"], value: 1}])
+					expect(inversePathes).toEqual([
+						{op: "replace", path: ["a"], value: 0}
+					])
+				}))
 		})
 
 		it("throws when the draft is modified and another object is returned", () => {

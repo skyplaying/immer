@@ -10,13 +10,22 @@ module.exports = {
 	onBrokenLinks: "throw",
 	onBrokenMarkdownLinks: "warn",
 	favicon: "img/favicon.ico",
+	i18n: {
+		defaultLocale: "en",
+		locales: ["en", "zh-CN"]
+	},
 	themeConfig: {
-		googleAnalytics: {
-			trackingID: "UA-65632006-3",
-			anonymizeIP: true
+		announcementBar: {
+			id: "support_ukraine",
+			content:
+				'Support Ukraine 🇺🇦 <a target="_blank" rel="noopener noreferrer" href="https://opensource.fb.com/support-ukraine">Help Provide Humanitarian Aid to Ukraine</a>.',
+			backgroundColor: "#20232a",
+			textColor: "#fff",
+			isCloseable: false
 		},
 		navbar: {
 			title: "Immer",
+			style: "dark",
 			logo: {
 				src: "/img/immer-logo.svg",
 				alt: "Immer Logo"
@@ -38,6 +47,10 @@ module.exports = {
 					docId: "support",
 					label: "Support Immer",
 					position: "right"
+				},
+				{
+					type: "localeDropdown",
+					position: "left"
 				}
 			]
 		},
@@ -66,7 +79,20 @@ module.exports = {
 				routeBasePath: "/"
 			}
 		],
-		"@docusaurus/plugin-google-analytics",
+		[
+			"@docusaurus/plugin-google-gtag",
+			{
+				trackingID: "G-X43066885W",
+				anonymizeIP: true
+			}
+		],
+		[
+			"@docusaurus/plugin-google-analytics",
+			{
+				trackingID: "UA-65632006-3",
+				anonymizeIP: true
+			}
+		],
 		[
 			"@docusaurus/plugin-client-redirects",
 			{
